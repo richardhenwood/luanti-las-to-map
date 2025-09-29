@@ -1,10 +1,11 @@
 import glob
 import laspy
-from mapbuilder.converters.demo import TestBlueprint
+from itertools import chain
+from mapbuilder.converters.demo import TestBlueprint, BedrockBlueprint
 from mapbuilder.converters.las import LasBlueprint
 from mapbuilder.converters.sqlite import LuantiMapBlueprint
 from mapbuilder.converters.png import PngBlueprint
-from mapbuilder.drafter import Drafter
+from mapbuilder.drafter import Drafter, Writer
 
 las_files = []
 laz_dir = '../../3d_stuff/peaks/laz_files/*.copc.laz'
@@ -14,15 +15,33 @@ for copcfile in glob.glob(laz_dir):
 
 #blueprint = LasBlueprint(las_files[0])
 #blueprint = LasBlueprint('testassets/LPine1_demo.laz')
-blueprint = PngBlueprint('testassets/peaks.lores.png')
+#blueprint = PngBlueprint('testassets/peaks.lores.png')
 #blueprint.zscale(0.1)
-#blueprint = TestBlueprint(datafile=None)
-blueprint = Drafter().backfill(blueprint)
+#bp = LasBlueprint('testassets/LPine1_demo.laz')
+# bp = BedrockBlueprint(datafile=None)
+# bedrock = Drafter(bp).getLuantiSuperSubBlocks(bp.getPointsLuantiDensity(stride=10))
+
+
+#island = Drafter(bp).getLuantiSuperSubBlocks(Drafter(bp).backfill(bp.getPointsLuantiDensity(stride=10)))
+#bp = PngBlueprint('testassets/peaks.lores.png')
+#bp = PngBlueprint('testassets/peaks.lores.png')
+bp = LasBlueprint(las_files[0])
+island = Drafter(bp).getLuantiSuperSubBlocks(Drafter(bp).backfill(bp.getPointsLuantiDensity(stride=1)))
 #blueprint_base = LuantiMapBlueprint('./testassets/superflat.map.sqlite')
 #points = blueprint_base.getPointsNormalized()
 #blueprint_png = architect.Blueprint('./test.png')
 
-blueprint.write_to_sqlite('./map.sqlite', overwrite=True)
+#generator = Drafter().combine(island, bedrock)
+#generator = chain(island, bedrock)
+generator = island #Drafter(None).getLuantiSuperSubBlocks(bedrock)
+
+Writer(filename='./map.sqlite', overwrite=True).write(points=generator)
+
+Writer(filename='./map.sqlite').bedrock(10, -16)
+
+# bp = BedrockBlueprint(datafile=None)
+# bedrock = Drafter(bp).getLuantiSuperSubBlocks(bp.getPointsLuantiDensity(stride=10))
+# Writer(filename='./map.sqlite').write(points=bedrock, append=True)
 
 
 # architect = Architect(blueprint_base)

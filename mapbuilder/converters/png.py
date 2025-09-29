@@ -10,7 +10,6 @@ class PngBlueprint(Blueprint):
 
     def _preprocess(self):
         with Image.open(self.datafile).convert('L') as p_bitmap:
-            print('here')
             width, height = p_bitmap.size
             self.abs_x_min = 0
             self.abs_x_max = width
@@ -32,8 +31,22 @@ class PngBlueprint(Blueprint):
                     delta = val
         return delta
 
+    def getPointsLuantiDensity(self, stride=1): #list[PointXYZC]:
+        points = []
+        pidx = 0
+        # convert('L') to flip the image because that makes 
+        # the coordinate system work as expected.
+        with Image.open(self.datafile).convert('L') as p_bitmap:
+            for x in range(p_bitmap.width):
+                for y in range(p_bitmap.height):
+                    val = p_bitmap.getpixel((x, y))
+                    val = int(val * self.z_import_scale)
+                    yield (x, y, val, "default:dirt")
+                    pidx += 1
+            if pidx % int(self.total_points/100) == 0:
+                logger.info(f"normalizing job {(pidx/self.total_points)*100:6.2f}% complete")
     
-    def getPointsNormalized(self) -> Blueprint.pointList: #list[PointXYZC]:
+    def getPointsNormalized(self): #list[PointXYZC]:
         points = []
         pidx = 0
         # convert('L') to flip the image because that makes 
@@ -43,11 +56,11 @@ class PngBlueprint(Blueprint):
                 for y in range(p_bitmap.height):
                     val = p_bitmap.getpixel((x, y))
                     val = val * self.z_import_scale
-                    points.append((x/self.abs_x_max, y/self.abs_y_max, val/self.abs_z_max, "default:dirt"))
+                    yield (x/self.abs_x_max, y/self.abs_y_max, val/self.abs_z_max, "default:dirt")
                     pidx += 1
             if pidx % int(self.total_points/100) == 0:
                 logger.info(f"normalizing job {(pidx/self.total_points)*100:6.2f}% complete")
-        return points
+        #return points
         #             val = p_bitmap.getpixel((x, y))
         #             if val != 145:
         #                 if val < z_min:

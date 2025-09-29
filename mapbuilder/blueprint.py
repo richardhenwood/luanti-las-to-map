@@ -79,6 +79,9 @@ class Blueprint(ABC):
         'abs_y_max',
         'abs_z_min',
         'abs_z_max',
+        'xres',
+        'yres',
+        'skip_index'
         'points_per_block', # points per block
         'x_block_dimension',
         'y_block_dimension',
@@ -101,14 +104,19 @@ class Blueprint(ABC):
         self._preprocess()
         self.resolution = 1
         self.z_import_scale = 1.0
+        self.skip_index = 1
     
     @abstractmethod
     def _preprocess(self):
         # populate the class fields
         pass
 
-    @abstractmethod
+    #@abstractmethod
     def getPointsNormalized(self) -> pointList: #list[PointXYZC]:
+        pass
+
+    @abstractmethod
+    def getPointsLuantiDensity(self) -> pointList: #list[PointXYZC]:
         pass
 
     def zscale(self, factor):
