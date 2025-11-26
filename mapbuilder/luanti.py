@@ -4,6 +4,7 @@ from collections import defaultdict
 class Reference():
 
     mapblocks = {}
+    dim = 4096 * 16
     nodes_per_block = 16 * 16 * 16
 
     mappings = [
@@ -36,9 +37,11 @@ class Reference():
     # https://desktop.arcgis.com/en/arcmap/latest/manage-data/las-dataset/lidar-point-classification.htm#ESRI_SECTION1_570719D89812478598FB633D71EBAD06
     classification = {
         0: (6, "default:gravel",'Never classified'),
-        1: (6, "default:dirt_with_grass", 'Unassigned'),
+        #1: (6, "default:dirt_with_grass", 'Unassigned'),
+        1: (6, "default:leaves", 'Unassigned'),
         2: (5, 'default:dirt', 'Ground'),
-        3: (6, 'default:dirt_with_grass', 'Low Vegetation'),
+        #3: (6, 'default:dirt_with_grass', 'Low Vegetation'),
+        3: (6, 'default:leaves', 'Low Vegetation'),
         4: (7, 'default:pine_sapling', 'Medium Vegetation'),
         5: (7, 'default:pine_tree', 'High Vegetation'), #TODO: add saplings
         6: (1, 'default:stone', 'Building'), 
@@ -53,8 +56,8 @@ class Reference():
         15: (19, 'default:stone', 'Transmission Tower'), 
         16: (19, 'default:stone', 'Wire-Structure Connector (Insulator)'), 
         17: (23, 'default:mossycobble', 'Bridge Deck'), 
-        18: (11, 'default:slivr_rsand', 'High Noise'), 
-        20: (5, 'default:dirt', 'Reserved'), 
+        18: (11, 'default:silver_sand', 'High Noise'), 
+        20: (5, 'default:desert_sand', 'Reserved'), 
     }	
 
     def block_convert(x, z, y):
@@ -107,7 +110,7 @@ class Utils():
     @staticmethod
     def format_hex_block(hblock, mappings):
         header = bytearray()
-        header.extend(b'\x00\x00\x00\x00\x00\x00\x00')  # flags, lighting, timestamp
+        header.extend(b'\x08\x00\x00\x00\x00\x00\x00')  # flags, lighting, timestamp
         header.append(0)  # Name-ID Mapping version
         header.extend(struct.pack(">H", len(mappings)))
         for mid, name in mappings.items():

@@ -89,7 +89,12 @@ class Blueprint(ABC):
         'z_import_scale', # scale the import
         'total_points',
         'normalized_points'
-        'luanti_points'
+        'luanti_points',
+        'luantidim',
+        'point_size',
+        'x_scale',
+        'y_scale',
+        'z_scale',
     ]
     pointList = list[(float, float, float, str)]
     normalizedPoints : pointList
@@ -105,6 +110,11 @@ class Blueprint(ABC):
         self.resolution = 1
         self.z_import_scale = 1.0
         self.skip_index = 1
+        self.luantidim = luanti.Reference().dim
+        self.point_size = 1
+        self.x_scale = 1
+        self.y_scale = 1
+        self.z_scale = 1
     
     @abstractmethod
     def _preprocess(self):
@@ -118,6 +128,16 @@ class Blueprint(ABC):
     @abstractmethod
     def getPointsLuantiDensity(self) -> pointList: #list[PointXYZC]:
         pass
+
+    def getXYDim(self):
+        ldim = luanti.Reference().dim
+        dim = (
+            0,
+            0,
+            int(ldim/self.xres),
+            int(ldim/self.yres)
+        )
+        return dim
 
     def zscale(self, factor):
         self.z_import_scale = factor
