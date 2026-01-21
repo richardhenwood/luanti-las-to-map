@@ -14,13 +14,20 @@ Point values must be of the form (int, int, int) and are expected to be
 (0 <= point int < 4096*16). The point cloud can be written to a new Luanti 
 map file or merged with an existing Luanti map.
 
+Where possible data is streamed from the data provider and converted to Luanti
+map data continuously. This design allows control of memory pressure. The
+current design requires batch transformation in part of the pipeline. Batch
+size is controlled using the itertools batch function which in turn controls
+memory pressure. A batch size of 300000 avoided memory exhaustion on a 16GB
+Fedora laptop with Python 13.3.
+
 Data providers emit points in this form from raw data files. Provider file types include: 
  + LAS/LAZ
  + Png
  + Luanti Sqlite
  + python code that emits a point.
 
-LAS/LAZ is farily well tested.
+LAS/LAZ is fairly well tested.
 
 ## Installation
 
@@ -35,8 +42,8 @@ Lidar data from [Peaks Island ferry terminal](https://en.wikipedia.org/wiki/Peak
 
 ## Where to find Lidar data
 
-(https://www.usgs.gov/faqs/what-lidar-data-and-where-can-i-download-it)
-(https://www.data.gov.uk/dataset/f0db0249-f17b-4036-9e65-309148c97ce4/national-lidar-programme)
+ + (https://www.usgs.gov/faqs/what-lidar-data-and-where-can-i-download-it)
+ + (https://www.data.gov.uk/dataset/f0db0249-f17b-4036-9e65-309148c97ce4/national-lidar-programme)
 
 ## Usage
 
@@ -47,7 +54,7 @@ point if you want to create a Asuna based game with your map.
 ## Known Problems
 
  + a bug exists in the luanti block merge code.
- + progress mesaure is not working.
+ + progress measure is not working.
 
  + the material system is poorly design.
  + the sqlite dataprovider is not tested.
