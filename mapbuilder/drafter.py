@@ -1,25 +1,21 @@
 from .blueprint import Blueprint #, PointXYZC
 from . import luanti
-
+from .block_codec import parse_mapblock
 import sqlite3
 import os
-import zstandard as zstd
+import zstandard
 import numpy
 
 import logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
-# supernode = x,y,z
-# subnode = x,y,z,material
-#luantisuperblock = [(supernode_coords, [subnode])]
-
 
 class LuantiMap():
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
 
     def __init__(self, filename, overwrite=False):
         self.filename = filename
         self.overwrite = overwrite
+        self.insert_count = 0
 
     def __enter__(self):
         if self.overwrite:
@@ -38,12 +34,73 @@ class LuantiMap():
         return self
 
     def upsert(self, points, total_points_estimate):
-        insert_count = 0
-        for upsert in self._points_to_LuantiSql(points):
-            self.cur.execute(*upsert) 
-            if insert_count % int(total_points_estimate/1000) == 0:
-                logger.info(f"writing superblocks to map.sqlite: {(insert_count/total_points_estimate)*100:6.2f}%")
-            insert_count += 1
+        for insert, replace, select, blob, materials in self._points_to_LuantiSql(points):
+            try:
+                self.cur.execute(*insert) 
+            except sqlite3.IntegrityError as ex:
+                self.cur.execute(*select)
+                row = self.cur.fetchone() 
+                block = self.mergeblock(row, blob, materials)
+                self.cur.execute(replace[0], 
+                        (replace[1][0], 
+                        replace[1][1],
+                        replace[1][2],
+                        block)) 
+                self.logger.debug(f"processed collision.")
+            if self.insert_count % int(total_points_estimate/1000) == 0:
+                self.logger.info(f"writing superblocks to sqlite map file: {(self.insert_count/total_points_estimate)*100:6.2f}%")
+            self.insert_count += 16 * 16 * 4 # ? guessing how many points were written
+    
+    def mergeblock(self, sqliteblock, newblock, materials):
+        bblob = sqliteblock[3]
+        bblob = bblob[1:] # drop the 'version' byte([29])
+        blob = zstandard.ZstdDecompressor().decompress(bblob, 10000000)
+        aparsed = parse_mapblock(blob)
+        bparsed = parse_mapblock(newblock)
+        anodes = aparsed['node_data']['param0']
+        bnodes = bparsed['node_data']['param0']
+        mappinglist = materials
+        if aparsed['mappings'] != bparsed['mappings']:
+            mappingset = {}
+            for m in aparsed['mappings']:
+                if m['name'] not in mappingset:
+                    mappingset[m['name']] = {'a': -1, 'b': -1}
+                mappingset[m['name']]['a'] = m['id']
+            for m in bparsed['mappings']:
+                if m['name'] not in mappingset:
+                    mappingset[m['name']] = {'a': -1, 'b': -1}
+                mappingset[m['name']]['b'] = m['id']
+            self.logger.debug("merging nodes")
+            numid = 0
+            mappinglist = {}
+            lookups = []
+            for nodename, ids in mappingset.items():
+                # if numid == 6:
+                #     print('here')
+                # if ids['a'] == 6:
+                #     print('here')
+                # if ids['b'] == 6:
+                #     print('here')
+                numoffset = numid + len(mappingset.keys())
+                if ids['a'] != -1:
+                    anodes = anodes.replace(ids['a'].to_bytes(), numoffset.to_bytes()) 
+                if ids['b'] != -1:
+                    bnodes = bnodes.replace(ids['b'].to_bytes(), numoffset.to_bytes()) 
+                mappinglist[numid] = nodename
+                lookups.append((numoffset, numid))
+                numid += 1
+            for swap in lookups:
+                anodes = anodes.replace(swap[0].to_bytes(), swap[1].to_bytes())
+                bnodes = bnodes.replace(swap[0].to_bytes(), swap[1].to_bytes())
+        result_bytes_object = bytes(a | b for a, b in 
+                                        zip(anodes, bnodes))
+
+        fhex = luanti.Utils.format_hex_block(result_bytes_object, mappinglist)
+        version_byte = bytes([29])
+        compressed_blob = zstandard.ZstdCompressor(level=3).compress(fhex)
+        blob_bytes = version_byte + compressed_blob
+
+        return blob_bytes
         
     def bedrock(self, xy_dim, z_max, z_min):
         bedrockblock = []
@@ -56,7 +113,7 @@ class LuantiMap():
         hexblock = luanti.Utils.make_block_hex(bedrockblock, materialsr)
         fhex = luanti.Utils.format_hex_block(hexblock, materials)
         version_byte = bytes([29])
-        compressed_blob = zstd.ZstdCompressor(level=3).compress(fhex)
+        compressed_blob = zstandard.ZstdCompressor(level=3).compress(fhex)
         blob_bytes = version_byte + compressed_blob
         self.cur.execute('INSERT INTO blocks (x, y, z, data) VALUES (?, ?, ?, ?)',
             (xy_dim[0], 
@@ -74,7 +131,7 @@ class LuantiMap():
                     self.cur.execute('INSERT INTO blocks (x, y, z, data) VALUES (?, ?, ?, ?)',
                         (xblock, yblock, zblock, blob_bytes))
                     count += 1
-            logger.info(f"writing bedrock {(count/bedrockblock_count)*100}")
+            self.logger.info(f"writing bedrock {(count/bedrockblock_count)*100}")
 
     def _points_to_SuperSubBlocks(self, points):
         xblocks = luanti.Utils.nested_dict(3, list)
@@ -98,8 +155,9 @@ class LuantiMap():
             hexblock = luanti.Utils.make_block_hex(superblock[1], materialsr)
             fhex = luanti.Utils.format_hex_block(hexblock, materials)
             version_byte = bytes([29])
-            compressed_blob = zstd.ZstdCompressor(level=3).compress(fhex)
+            compressed_blob = zstandard.ZstdCompressor(level=3).compress(fhex)
             blob_bytes = version_byte + compressed_blob
+            '''
             yield ('INSERT INTO blocks (x, y, z, data) \
                         VALUES (?, ?, ?, ?) \
                         ON CONFLICT(x,y,z) \
@@ -112,9 +170,35 @@ class LuantiMap():
                         superblock[0][2], 
                         superblock[0][1], 
                         blob_bytes))
+            '''
+            yield (('INSERT INTO blocks (x, y, z, data) \
+                        VALUES (?, ?, ?, ?)',
+                        (superblock[0][0], 
+                        superblock[0][2], 
+                        superblock[0][1], 
+                        blob_bytes)),
+                    ('INSERT INTO blocks (x, y, z, data) \
+                        VALUES (?, ?, ?, ?) \
+                        ON CONFLICT(x,y,z) \
+                        DO UPDATE SET \
+                        x=excluded.x, \
+                        y=excluded.y, \
+                        z=excluded.z, \
+                        data=excluded.data',
+                        (superblock[0][0], 
+                        superblock[0][2], 
+                        superblock[0][1], 
+                        blob_bytes)),
+                    ('SELECT * FROM blocks '
+                    'WHERE x = ? AND y = ? AND z = ?',
+                        (superblock[0][0], 
+                        superblock[0][2], 
+                        superblock[0][1],)),
+                    fhex,
+                    materials)
             pidx += 1
             if pidx % 1000 == 0:
-                logger.info(f"writing superblock to map.sqlite: {pidx}")
+                self.logger.info(f"writing superblock to map.sqlite: {pidx}")
 
     def _getMaterials(self, points):
         materials = {0: "air"}
@@ -230,7 +314,7 @@ def notgroundwater(points):
             continue
         yield point
 
-def backfill(points):
+def backfill(points, z_depth=0):
     xyblocks = luanti.Utils.nested_dict(2, list)
     for p in points:
         xyblocks[p[0]][p[1]].append((p[2], p[3]))
@@ -238,7 +322,7 @@ def backfill(points):
         for yidx in xyblocks[xidx]:
             floor = sorted(xyblocks[xidx][yidx], key=lambda tup: tup[0])[0]
             yield (xidx, yidx, floor[0], floor[1])
-            for zidx in range(floor[0]):
+            for zidx in range(z_depth, floor[0]):
                 yield (xidx, yidx, zidx, 6 ) # 6 -> "default:stone")
 
 def delete_classification(points, classification_number=18): # 18 is 'high noise' in LAS
