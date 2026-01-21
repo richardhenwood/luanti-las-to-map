@@ -28,6 +28,10 @@ LAS/LAZ is farily well tested.
 pip install luanti-las-to-map
 ```
 
+## Example
+
+![Peaks Island ME. ferry landing](./example_peaksisland_luanti.png)
+
 ## Where to find Lidar data
 
 (https://www.usgs.gov/faqs/what-lidar-data-and-where-can-i-download-it)
