@@ -30,13 +30,13 @@ pip install luanti-las-to-map
 
 ## Where to find Lidar data
 
-[https://www.usgs.gov/faqs/what-lidar-data-and-where-can-i-download-it]
-[https://www.data.gov.uk/dataset/f0db0249-f17b-4036-9e65-309148c97ce4/national-lidar-programme]
+(https://www.usgs.gov/faqs/what-lidar-data-and-where-can-i-download-it)
+(https://www.data.gov.uk/dataset/f0db0249-f17b-4036-9e65-309148c97ce4/national-lidar-programme)
 
 ## Usage
 
-See the example (example_build.py)[./example_build.py].
-(map_meta.txt)[./map_meta.txt.asuna] is an example file as a starting
+See the example [example_build.py](./example_build.py).
+[map_meta.txt](./map_meta.txt.asuna) is an example file as a starting
 point if you want to create a Asuna based game with your map.
 
 ## Known Problems
