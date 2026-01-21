@@ -31,6 +31,7 @@ pip install luanti-las-to-map
 ## Example
 
 ![Peaks Island ME. ferry landing](./example_peaksisland_luanti.png)
+Lidar data from [Peaks Island ferry terminal](https://en.wikipedia.org/wiki/Peaks_Island).
 
 ## Where to find Lidar data
 
